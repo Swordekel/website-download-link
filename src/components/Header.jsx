@@ -47,7 +47,7 @@ export default function Header({ activeTab, setActiveTab, historyCount, queueCou
                   
                   <div className="nav-tab-content flex-center">
                     {tab.icon}
-                    <span>{tab.label}</span>
+                    <span className="nav-tab-label-text">{tab.label}</span>
                     {tab.badge !== null && (
                       <span className={`tab-badge ${tab.badgeClass}`}>
                         {tab.badge}

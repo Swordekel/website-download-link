@@ -1948,6 +1948,185 @@ p {
   outline: none;
 }
 
+/* ==========================================================================
+   Consolidated Mobile Responsive Overrides
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Header stays horizontal! */
+  .header-container {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 1rem;
+    gap: 0.5rem !important;
+  }
+  
+  .nav-controls-wrapper {
+    gap: 0.5rem;
+  }
+
+  .nav-tabs {
+    width: auto !important;
+    padding: 0.25rem !important;
+  }
+
+  .nav-tab-btn {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* Compact header title */
+  .hero-title {
+    font-size: 2.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Hide text in navigation tabs on mobile screens */
+  .nav-tab-label-text {
+    display: none !important;
+  }
+  
+  .nav-tab-btn {
+    padding: 0.6rem 0.85rem !important;
+  }
+  
+  .nav-tabs {
+    border-radius: 12px;
+  }
+  
+  .logo-text {
+    font-size: 1.25rem;
+  }
+  
+  .logo-icon-wrapper {
+    padding: 0.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-section {
+    padding: 3rem 0 1.5rem 0;
+  }
+
+  .hero-title {
+    font-size: 1.85rem;
+    line-height: 1.2;
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .downloader-card {
+    padding: 1.25rem 1rem;
+  }
+
+  /* Single row search wrapper on mobile (text "Analisis" is hidden) */
+  .glass-input-wrapper {
+    flex-wrap: nowrap !important;
+  }
+
+  .glass-input {
+    padding: 0.85rem 0.5rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .input-prefix-icon {
+    padding-left: 0.85rem;
+  }
+
+  .input-action-btn {
+    padding: 0.5rem 0.4rem !important;
+    margin-right: 0px;
+  }
+
+  .input-submit-btn {
+    padding: 0.6rem 0.85rem !important;
+    margin: 4px;
+    border-radius: 10px !important;
+  }
+
+  /* Extractor Panel Compactness */
+  .extractor-panel {
+    padding: 1.25rem 1rem;
+    margin-top: 1.25rem;
+  }
+
+  .video-title {
+    font-size: 1.15rem;
+  }
+
+  .video-meta {
+    margin-bottom: 1.25rem !important;
+    gap: 0.75rem;
+  }
+
+  .format-tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .format-row {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .format-resolution {
+    font-size: 0.9rem;
+  }
+
+  .format-size {
+    font-size: 0.8rem;
+  }
+
+  .btn-download-format {
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .format-actions {
+    gap: 0.75rem;
+  }
+
+  /* Supported Platforms Checklist */
+  .format-checklist {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem;
+  }
+
+  .platform-card {
+    padding: 1.25rem !important;
+  }
+
+  .url-example-box {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .example-code {
+    font-size: 0.75rem;
+  }
+
+  /* Faq accordion padding */
+  .faq-question-btn {
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .faq-answer-content {
+    padding: 0 1.25rem 1rem 2.25rem;
+    font-size: 0.85rem;
+  }
+
+  /* Play Button Ring sizing */
+  .play-icon-ring {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+
 
 
 

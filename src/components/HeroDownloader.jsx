@@ -127,7 +127,7 @@ export default function HeroDownloader({ onAnalyze, isLoading, error }) {
                   <div className="spinner-small"></div>
                 ) : (
                   <>
-                    <span>Analisis</span>
+                    <span className="btn-label-desktop">Analisis</span>
                     <ArrowRight size={16} />
                   </>
                 )}
