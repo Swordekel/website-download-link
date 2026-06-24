@@ -60,252 +60,44 @@ export default function App() {
     localStorage.setItem('aerograb_history', JSON.stringify(newHistory));
   };
 
-  // Fungsi pembuat SVG placeholder gradient beresolusi tinggi secara offline dengan tema Brown/Cokelat
-  const getMockThumbnail = (plat, title) => {
-    let color1 = '';
-    let color2 = '';
-    
-    switch (plat) {
-      case 'youtube':
-        color1 = '%23b45309'; // Warm Amber/Orange-Brown
-        color2 = '%2378350f'; // Dark Brown
-        break;
-      case 'tiktok':
-        color1 = '%23a16207'; // Yellow-Brown
-        color2 = '%23451a03'; // Deep Espresso
-        break;
-      case 'facebook':
-        color1 = '%23b45309'; // Bronze-Brown
-        color2 = '%23451a03';
-        break;
-      case 'instagram':
-        color1 = '%23d97706'; // Golden Amber
-        color2 = '%2378350f';
-        break;
-      default:
-        color1 = '%238b5a2b';
-        color2 = '%234a2c11';
-    }
-
-    // SVG sederhana dengan gradient platform dan overlay tombol play yang manis
-    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${color1}"/><stop offset="100%" stop-color="${color2}"/></linearGradient></defs><rect width="640" height="360" fill="url(%23g)"/><circle cx="320" cy="180" r="42" fill="white" fill-opacity="0.15" stroke="white" stroke-width="2.5"/><polygon points="312,165 312,195 335,180" fill="white"/></svg>`;
+  // Tambah entri ke riwayat (functional update agar tidak memakai state usang)
+  const addToHistory = (historyItem) => {
+    setHistory((prev) => {
+      const updated = [historyItem, ...prev];
+      localStorage.setItem('aerograb_history', JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  // Simulasi analisis link video
-  const handleAnalyze = (url, detectedPlatform) => {
-    if (!detectedPlatform) {
-      setError(
-        'Maaf, tautan tidak dikenali. AeroGrab mendukung link dari YouTube, TikTok, Facebook, dan Instagram yang valid.'
-      );
-      setVideoData(null);
-      return;
-    }
-
+  // Analisis link video NYATA melalui backend yt-dlp
+  const handleAnalyze = async (url) => {
     setIsLoading(true);
     setError(null);
     setVideoData(null);
 
-    // Simulasi respons ekstraksi
-    setTimeout(() => {
-      let title = '';
-      let author = '';
-      let duration = '';
-      let formats = { video: [], audio: [] };
-
-      if (detectedPlatform === 'youtube') {
-        title = 'Relaxing Lofi Hip Hop Beats 2026 🎧 Music to Study, Work or Relax';
-        author = 'Lofi Cafe Broadcast';
-        duration = '10:45';
-        formats = {
-          video: [
-            { resolution: '1080p (Full HD)', quality: 'High', size: '124.5 MB', type: 'video' },
-            { resolution: '720p (HD)', quality: 'Medium', size: '68.2 MB', type: 'video' },
-            { resolution: '480p (SD)', quality: 'Low', size: '32.1 MB', type: 'video' },
-          ],
-          audio: [
-            { bitrate: '320 kbps', quality: 'HQ Audio', size: '9.8 MB', type: 'audio' },
-            { bitrate: '192 kbps', quality: 'Normal', size: '5.9 MB', type: 'audio' },
-          ],
-        };
-      } else if (detectedPlatform === 'tiktok') {
-        title = 'Life is simple when you stop complicating things! 🤫 #comedy #tiktok #lifehacks';
-        author = '@khaby.lame';
-        duration = '00:45';
-        formats = {
-          video: [
-            { resolution: 'Original (HD)', quality: 'No Watermark', size: '12.4 MB', type: 'video' },
-            { resolution: 'Original (SD)', quality: 'With Watermark', size: '11.8 MB', type: 'video' },
-          ],
-          audio: [
-            { bitrate: '320 kbps', quality: 'Original Audio', size: '1.2 MB', type: 'audio' },
-          ],
-        };
-      } else if (detectedPlatform === 'facebook') {
-        title = 'Beautiful Norway Landscapes - 10 Magical Places You Must Visit 🇳🇴';
-        author = 'Travel Planet';
-        duration = '03:20';
-        formats = {
-          video: [
-            { resolution: 'HD 720p', quality: 'High Quality', size: '48.7 MB', type: 'video' },
-            { resolution: 'SD 360p', quality: 'Standard', size: '18.4 MB', type: 'video' },
-          ],
-          audio: [
-            { bitrate: '256 kbps', quality: 'HD Audio', size: '3.4 MB', type: 'audio' },
-          ],
-        };
-      } else if (detectedPlatform === 'instagram') {
-        title = 'Delicious chocolate volcano cake recipe! 🌋🍫 #baking #desserts #reels';
-        author = '@chef.tasty';
-        duration = '01:00';
-        formats = {
-          video: [
-            { resolution: 'HD 1080p', quality: 'Original Quality', size: '15.6 MB', type: 'video' },
-            { resolution: 'SD 480p', quality: 'Mobile Optimized', size: '6.2 MB', type: 'video' },
-          ],
-          audio: [
-            { bitrate: '320 kbps', quality: 'HQ Audio', size: '1.4 MB', type: 'audio' },
-          ],
-        };
+    try {
+      const res = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || `Gagal menganalisis (HTTP ${res.status})`);
       }
-
-      setVideoData({
-        title,
-        author,
-        duration,
-        platform: detectedPlatform,
-        thumbnail: getMockThumbnail(detectedPlatform, title),
-        url,
-        formats,
-      });
+      const data = await res.json();
+      setVideoData(data);
+    } catch (e) {
+      setError(
+        `Gagal menganalisis tautan: ${e.message}. Pastikan tautan valid, publik, dan didukung yt-dlp.`
+      );
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  };
-
-  // Menghasilkan berkas WAV (PCM 16-bit) yang valid berisi nada lembut.
-  // Berkas ini benar-benar dapat diputar oleh media player, bukan sekadar teks.
-  const generateAudioBlob = (durationSec = 3) => {
-    const sampleRate = 44100;
-    const numSamples = Math.floor(durationSec * sampleRate);
-    const dataSize = numSamples * 2; // 16-bit mono
-    const buffer = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(buffer);
-    const writeStr = (offset, str) => {
-      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-    };
-
-    // Header WAV/RIFF standar
-    writeStr(0, 'RIFF');
-    view.setUint32(4, 36 + dataSize, true);
-    writeStr(8, 'WAVE');
-    writeStr(12, 'fmt ');
-    view.setUint32(16, 16, true); // ukuran sub-chunk fmt
-    view.setUint16(20, 1, true); // format PCM
-    view.setUint16(22, 1, true); // mono
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); // byte rate
-    view.setUint16(32, 2, true); // block align
-    view.setUint16(34, 16, true); // bits per sample
-    writeStr(36, 'data');
-    view.setUint32(40, dataSize, true);
-
-    // Nada 440Hz dengan amplop attack/decay agar terdengar halus
-    for (let i = 0; i < numSamples; i++) {
-      const t = i / sampleRate;
-      const env = Math.min(1, t * 4) * Math.max(0, 1 - t / durationSec);
-      const sample = Math.sin(2 * Math.PI * 440 * t) * 0.25 * env;
-      view.setInt16(44 + i * 2, sample * 0x7fff, true);
     }
-
-    return new Blob([view], { type: 'audio/wav' });
   };
 
-  // Menghasilkan berkas video nyata (canvas + MediaRecorder) yang benar-benar dapat diputar.
-  const generateVideoBlob = (item, durationSec = 2.5) =>
-    new Promise((resolve, reject) => {
-      try {
-        if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) {
-          reject(new Error('Browser ini tidak mendukung pembuatan berkas video.'));
-          return;
-        }
+  // ---------- Util unduhan ----------
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 360;
-        const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream(30);
+  const helperUpdateQueueItem = (id, patch) => {
+    setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+  };
 
-        // Tambahkan trek audio agar video memiliki suara
-        let audioCtx;
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          audioCtx = new AudioCtx();
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          gain.gain.value = 0.04;
-          osc.frequency.value = 220;
-          const dest = audioCtx.createMediaStreamDestination();
-          osc.connect(gain).connect(dest);
-          osc.start();
-          dest.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
-        }
-
-        const candidates = [
-          'video/webm;codecs=vp9,opus',
-          'video/webm;codecs=vp8,opus',
-          'video/webm',
-          'video/mp4',
-        ];
-        const mimeType =
-          candidates.find((c) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) ||
-          'video/webm';
-
-        const recorder = new MediaRecorder(stream, { mimeType });
-        const chunks = [];
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) chunks.push(e.data);
-        };
-        recorder.onerror = (e) => reject(e.error || new Error('Perekaman video gagal.'));
-        recorder.onstop = () => {
-          try { audioCtx && audioCtx.close(); } catch { /* noop */ }
-          resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
-        };
-
-        // Animasi sederhana bertema AeroGrab selama klip
-        const start = performance.now();
-        const draw = () => {
-          const p = Math.min(1, (performance.now() - start) / 1000 / durationSec);
-          const grad = ctx.createLinearGradient(0, 0, 640, 360);
-          grad.addColorStop(0, '#b45309');
-          grad.addColorStop(1, '#451a03');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, 640, 360);
-
-          ctx.fillStyle = 'rgba(255,255,255,0.95)';
-          ctx.textAlign = 'center';
-          ctx.font = 'bold 30px sans-serif';
-          ctx.fillText('AeroGrab', 320, 150);
-          ctx.font = '16px sans-serif';
-          ctx.fillText((item.videoTitle || '').slice(0, 42), 320, 188);
-
-          ctx.fillStyle = 'rgba(255,255,255,0.25)';
-          ctx.fillRect(170, 235, 300, 8);
-          ctx.fillStyle = '#10b981';
-          ctx.fillRect(170, 235, 300 * p, 8);
-
-          if (p < 1 && recorder.state === 'recording') requestAnimationFrame(draw);
-        };
-        requestAnimationFrame(draw);
-
-        recorder.start();
-        setTimeout(() => {
-          if (recorder.state === 'recording') recorder.stop();
-        }, durationSec * 1000);
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-  // Memicu unduhan berkas ke perangkat melalui anchor sementara
   const triggerBrowserDownload = (blob, filename) => {
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -319,109 +111,143 @@ export default function App() {
     }, 1000);
   };
 
-  // Fungsi pengunduh fisik file: menghasilkan berkas media VALID yang benar-benar bisa diputar.
-  // Mengembalikan Promise agar kegagalan dapat ditangani (status "Gagal"), bukan diam-diam rusak.
-  const saveFileToDevice = async (item) => {
-    const formatLabel = item.resolution || item.bitrate || 'MP4';
-    const safeTitle =
-      (item.videoTitle || 'AeroGrab Video').replace(/[/\\?%*:|"<>]/g, '').trim() || 'AeroGrab Video';
-
-    let blob;
-    let extension;
-    if (item.type === 'audio') {
-      blob = generateAudioBlob();
-      extension = 'wav';
-    } else {
-      const result = await generateVideoBlob(item);
-      blob = result.blob;
-      extension = result.mimeType.includes('mp4') ? 'mp4' : 'webm';
+  // Membaca nama berkas dari header Content-Disposition (mendukung unicode RFC5987)
+  const parseFilename = (disposition) => {
+    if (!disposition) return null;
+    const star = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (star) {
+      try { return decodeURIComponent(star[1]); } catch { /* noop */ }
     }
-
-    if (!blob || blob.size === 0) {
-      throw new Error('Berkas yang dihasilkan kosong.');
-    }
-
-    triggerBrowserDownload(blob, `${safeTitle} [AeroGrab ${formatLabel}].${extension}`);
+    const plain = disposition.match(/filename="?([^";]+)"?/i);
+    return plain ? plain[1] : null;
   };
 
-  // Penyimpanan manual (tombol "Simpan" / unduh ulang dari riwayat) dengan umpan balik kegagalan
-  const handleManualSave = (item) => {
-    saveFileToDevice(item).catch((err) => {
-      console.error('Gagal menyimpan berkas:', err);
-      window.alert(`Maaf, berkas gagal disimpan: ${err?.message || 'Kesalahan tidak diketahui'}`);
+  const buildFilename = (item) => {
+    const safe = (item.videoTitle || 'AeroGrab').replace(/[/\\?%*:|"<>]/g, '').trim() || 'AeroGrab';
+    const label = item.resolution || item.bitrate || '';
+    const ext = item.type === 'audio' ? 'mp3' : 'mp4';
+    return `${safe} [AeroGrab ${label}].${ext}`;
+  };
+
+  const buildDownloadUrl = (item) => {
+    const params = new URLSearchParams({
+      url: item.videoUrl,
+      type: item.type,
+      title: item.videoTitle || 'AeroGrab',
+      label: item.resolution || item.bitrate || '',
     });
+    if (item.type === 'audio') params.set('abr', String(item.abr ?? 'best'));
+    else params.set('height', String(item.height ?? 1080));
+    return `/api/download?${params.toString()}`;
   };
 
-  // Tambah entri ke riwayat dengan functional update agar tidak memakai state usang
-  const addToHistory = (historyItem) => {
-    setHistory((prev) => {
-      const updated = [historyItem, ...prev];
-      localStorage.setItem('aerograb_history', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  // Finalisasi: simpan berkas ke perangkat, lalu tandai selesai HANYA jika benar-benar berhasil
-  const finalizeSave = (item) => {
-    setQueue((prevQueue) =>
-      prevQueue.map((qItem) =>
-        qItem.id === item.id
-          ? { ...qItem, progress: 100, status: 'saving', speed: 'Menyiapkan berkas...', eta: 'Sebentar lagi' }
-          : qItem
-      )
-    );
-
-    return saveFileToDevice(item)
-      .then(() => {
-        setQueue((prevQueue) =>
-          prevQueue.map((qItem) =>
-            qItem.id === item.id
-              ? { ...qItem, status: 'completed', speed: '0 KB/s', eta: 'Selesai', errorMessage: null }
-              : qItem
-          )
-        );
-
-        // Konfeti hanya dipicu setelah berkas benar-benar tersimpan
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.8 },
-          colors: ['#8b5a2b', '#b8860b', '#d2b48c', '#10b981'],
-        });
-
-        addToHistory({ ...item, timestamp: Date.now() });
-
-        // Hapus otomatis dari queue setelah 5 detik
-        setTimeout(() => {
-          setQueue((prevQueue) => prevQueue.filter((qItem) => qItem.id !== item.id));
-        }, 5000);
-      })
-      .catch((err) => {
-        console.error('Gagal menyimpan berkas:', err);
-        setQueue((prevQueue) =>
-          prevQueue.map((qItem) =>
-            qItem.id === item.id
-              ? {
-                  ...qItem,
-                  status: 'failed',
-                  speed: 'Gagal',
-                  eta: '-',
-                  errorMessage: err?.message || 'Berkas gagal disimpan ke perangkat.',
-                }
-              : qItem
-          )
-        );
+  // Mengeksekusi unduhan nyata dengan progres byte sebenarnya dari server
+  const startRealDownload = async (item) => {
+    try {
+      helperUpdateQueueItem(item.id, {
+        status: 'processing',
+        progress: 0,
+        speed: 'Memproses di server...',
+        eta: 'Mohon tunggu',
       });
+
+      const res = await fetch(buildDownloadUrl(item), { signal: item.controller.signal });
+      if (!res.ok) {
+        const message = await res.text().catch(() => '');
+        throw new Error(message || `Gagal mengunduh (HTTP ${res.status})`);
+      }
+
+      const total = parseInt(res.headers.get('Content-Length') || '0', 10);
+      const filename = parseFilename(res.headers.get('Content-Disposition')) || buildFilename(item);
+      const contentType = res.headers.get('Content-Type') || 'application/octet-stream';
+
+      const reader = res.body.getReader();
+      const chunks = [];
+      let received = 0;
+      const startT = performance.now();
+
+      helperUpdateQueueItem(item.id, { status: 'downloading' });
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+
+        const elapsed = Math.max((performance.now() - startT) / 1000, 0.001);
+        const speed = received / elapsed; // byte/detik
+        const progress = total
+          ? Math.min(99, (received / total) * 100)
+          : Math.min(99, (received / (1024 * 1024)) * 12);
+        const etaSec = total && speed ? Math.max(0, (total - received) / speed) : null;
+
+        helperUpdateQueueItem(item.id, {
+          progress,
+          speed: `${(speed / 1024 / 1024).toFixed(1)} MB/s`,
+          eta: etaSec != null ? `${Math.ceil(etaSec)}s` : '—',
+        });
+      }
+
+      const blob = new Blob(chunks, { type: contentType });
+      triggerBrowserDownload(blob, filename);
+      onDownloadSuccess(item, blob, filename);
+    } catch (err) {
+      if (err.name === 'AbortError') return; // dibatalkan pengguna; item sudah dihapus
+      console.error('Unduhan gagal:', err);
+      helperUpdateQueueItem(item.id, {
+        status: 'failed',
+        speed: 'Gagal',
+        eta: '-',
+        errorMessage: err.message || 'Berkas gagal diunduh.',
+      });
+    }
   };
 
-  // Mencoba kembali penyimpanan berkas yang sebelumnya gagal
-  const handleRetrySave = (item) => {
-    finalizeSave(item);
+  const onDownloadSuccess = (item, blob, filename) => {
+    helperUpdateQueueItem(item.id, {
+      status: 'completed',
+      progress: 100,
+      speed: '0 KB/s',
+      eta: 'Selesai',
+      errorMessage: null,
+      blob,
+      filename,
+    });
+
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.8 },
+      colors: ['#8b5a2b', '#b8860b', '#d2b48c', '#10b981'],
+    });
+
+    addToHistory({
+      id: item.id,
+      videoTitle: item.videoTitle,
+      videoAuthor: item.videoAuthor,
+      platform: item.platform,
+      thumbnail: item.thumbnail,
+      resolution: item.resolution,
+      bitrate: item.bitrate,
+      size: item.size,
+      type: item.type,
+      videoUrl: item.videoUrl,
+      height: item.height,
+      abr: item.abr,
+      timestamp: Date.now(),
+    });
+
+    // Hapus otomatis dari queue setelah 5 detik
+    setTimeout(() => {
+      setQueue((prev) => prev.filter((q) => q.id !== item.id));
+    }, 5000);
   };
 
-  // Memulai proses download simulasi
+  // Memulai proses unduhan
   const handleDownload = (formatDetails) => {
-    const queueId = Date.now();
+    const queueId = Date.now() + Math.random();
+    const controller = new AbortController();
     const newQueueItem = {
       id: queueId,
       videoTitle: formatDetails.videoTitle,
@@ -432,79 +258,68 @@ export default function App() {
       bitrate: formatDetails.bitrate,
       size: formatDetails.size,
       type: formatDetails.type,
+      videoUrl: formatDetails.videoUrl,
+      height: formatDetails.height,
+      abr: formatDetails.abr,
       progress: 0,
-      speed: 'Connecting...',
-      eta: 'Menghitung...',
+      speed: 'Menghubungkan...',
+      eta: '-',
       status: 'connecting',
+      controller,
     };
 
-    setQueue((prevQueue) => [...prevQueue, newQueueItem]);
-    setActiveTab('downloader'); // Arahkan ke tab downloader agar antrean terlihat
-
-    // Logika simulasi download menggunakan interval progres
-    let currentProgress = 0;
-    const isAudio = formatDetails.type === 'audio';
-    const sizeNumber = parseFloat(formatDetails.size.split(' ')[0]);
-
-    const interval = setInterval(() => {
-      currentProgress += Math.random() * 8 + 4; // Pertambahan progres bervariasi
-
-      if (currentProgress >= 100) {
-        currentProgress = 100;
-        clearInterval(interval);
-
-        // Hasilkan & simpan berkas dulu; status "completed", konfeti, dan riwayat
-        // hanya terjadi kalau berkas benar-benar berhasil tersimpan ke perangkat.
-        const completedItem = { ...newQueueItem, id: queueId };
-        finalizeSave(completedItem);
-
-      } else {
-        // Progres berjalan
-        let status = 'downloading';
-        let speedStr = '';
-        let etaStr = '';
-
-        if (currentProgress < 85) {
-          // Fase download streaming
-          status = 'downloading';
-          // Kecepatan download dinamis
-          const minSpeed = isAudio ? 0.8 : 4.5;
-          const maxSpeed = isAudio ? 1.5 : 8.2;
-          const currentSpeed = (Math.random() * (maxSpeed - minSpeed) + minSpeed).toFixed(1);
-          speedStr = `${currentSpeed} MB/s`;
-
-          // Estimasi sisa waktu
-          const remainingMB = (sizeNumber * (100 - currentProgress)) / 100;
-          const remainingSeconds = Math.max(1, Math.ceil(remainingMB / parseFloat(currentSpeed)));
-          etaStr = `${remainingSeconds}s`;
-        } else {
-          // Fase Muxing audio & video (ffmpeg) di 15% terakhir
-          status = 'muxing';
-          speedStr = 'Muxing...';
-          etaStr = 'Beberapa saat lagi...';
-        }
-
-        setQueue((prevQueue) =>
-          prevQueue.map((qItem) =>
-            qItem.id === queueId
-              ? { ...qItem, progress: currentProgress, status, speed: speedStr, eta: etaStr }
-              : qItem
-          )
-        );
-      }
-    }, 300);
-
-    // Simpan reference interval di queue item agar bisa dibatalkan
-    newQueueItem.intervalRef = interval;
+    setQueue((prev) => [...prev, newQueueItem]);
+    setActiveTab('downloader');
+    startRealDownload(newQueueItem);
   };
 
-  // Membatalkan download yang sedang berjalan
+  // Mencoba kembali unduhan yang gagal
+  const handleRetrySave = (item) => {
+    const controller = new AbortController();
+    const fresh = { ...item, controller, blob: undefined };
+    helperUpdateQueueItem(item.id, {
+      status: 'connecting',
+      progress: 0,
+      errorMessage: null,
+      speed: 'Menghubungkan...',
+      eta: '-',
+      controller,
+    });
+    startRealDownload(fresh);
+  };
+
+  // Simpan/unduh ulang manual (tombol "Simpan" pada item selesai atau dari riwayat)
+  const handleManualSave = (item) => {
+    // Jika blob masih tersimpan (item selesai di queue), simpan langsung tanpa unduh ulang
+    if (item.blob) {
+      triggerBrowserDownload(item.blob, item.filename || buildFilename(item));
+      return;
+    }
+    // Item riwayat: unduh ulang nyata melalui backend
+    const queueId = Date.now() + Math.random();
+    const controller = new AbortController();
+    const dlItem = {
+      ...item,
+      id: queueId,
+      progress: 0,
+      speed: 'Menghubungkan...',
+      eta: '-',
+      status: 'connecting',
+      controller,
+      blob: undefined,
+    };
+    setQueue((prev) => [...prev, dlItem]);
+    setActiveTab('downloader');
+    startRealDownload(dlItem);
+  };
+
+  // Membatalkan unduhan yang sedang berjalan
   const handleCancelDownload = (queueId) => {
     const itemToCancel = queue.find((q) => q.id === queueId);
-    if (itemToCancel && itemToCancel.intervalRef) {
-      clearInterval(itemToCancel.intervalRef);
+    if (itemToCancel && itemToCancel.controller) {
+      try { itemToCancel.controller.abort(); } catch { /* noop */ }
     }
-    setQueue((prevQueue) => prevQueue.filter((q) => q.id !== queueId));
+    setQueue((prev) => prev.filter((q) => q.id !== queueId));
   };
 
   // Menghapus satu item riwayat

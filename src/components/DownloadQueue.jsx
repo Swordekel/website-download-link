@@ -52,14 +52,15 @@ function QueueItem({ item, onCancel, onSaveFile, onRetry }) {
   const getStatusText = () => {
     switch (status) {
       case 'connecting': return 'Menghubungkan ke server AeroGrab...';
-      case 'downloading': return `Mengunduh aliran media (${formatLabel})...`;
-      case 'muxing': return 'Menggabungkan audio & video (Muxing)...';
-      case 'saving': return 'Menyimpan berkas ke perangkat...';
-      case 'completed': return 'Selesai! Berkas berhasil disimpan.';
-      case 'failed': return errorMessage ? `Gagal: ${errorMessage}` : 'Berkas gagal disimpan. Silakan coba lagi.';
+      case 'processing': return 'Memproses di server (ekstraksi & penggabungan)...';
+      case 'downloading': return `Mengunduh berkas (${formatLabel})...`;
+      case 'completed': return 'Selesai! Berkas berhasil diunduh.';
+      case 'failed': return errorMessage ? `Gagal: ${errorMessage}` : 'Berkas gagal diunduh. Silakan coba lagi.';
       default: return 'Memproses...';
     }
   };
+
+  const isIndeterminate = status === 'connecting' || status === 'processing';
 
   const getPlatformIcon = () => {
     switch (platform) {
@@ -155,12 +156,16 @@ function QueueItem({ item, onCancel, onSaveFile, onRetry }) {
 
         {/* Progress Bar Container */}
         <div className="progress-bar-container">
-          <div
-            className={`progress-bar-fill ${status === 'completed' ? 'success' : ''} ${
-              status === 'failed' ? 'failed' : ''
-            }`}
-            style={{ width: `${progress}%` }}
-          ></div>
+          {isIndeterminate ? (
+            <div className="progress-bar-fill indeterminate"></div>
+          ) : (
+            <div
+              className={`progress-bar-fill ${status === 'completed' ? 'success' : ''} ${
+                status === 'failed' ? 'failed' : ''
+              }`}
+              style={{ width: `${progress}%` }}
+            ></div>
+          )}
         </div>
 
         {/* Informasi Kecepatan & ETA */}

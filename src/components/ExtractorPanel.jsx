@@ -31,6 +31,7 @@ export default function ExtractorPanel({ videoData, onDownload }) {
       videoAuthor: author,
       platform: platform,
       thumbnail: thumbnail,
+      videoUrl: url,
     });
   };
 
