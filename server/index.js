@@ -5,9 +5,13 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-const PORT = process.env.AEROGRAB_PORT || 5174;
+// PORT diset otomatis oleh sebagian besar host (Render/Cloud Run/dll). Fallback ke 5174 lokal.
+const PORT = process.env.PORT || process.env.AEROGRAB_PORT || 5174;
 const YTDLP = process.env.YTDLP_PATH || 'yt-dlp';
 
 // ---------- Util ----------
@@ -277,6 +281,15 @@ app.get('/api/download', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
+// ---------- Sajikan frontend hasil build (mode produksi) ----------
+// Saat di-deploy, satu service menyajikan UI sekaligus API (same-origin, tanpa CORS).
+// Saat pengembangan lokal, folder dist belum ada sehingga blok ini dilewati (UI dilayani Vite).
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
+}
 
 app.listen(PORT, () => {
   console.log(`AeroGrab backend berjalan di http://localhost:${PORT}`);

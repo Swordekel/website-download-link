@@ -1,0 +1,10 @@
+# Blueprint deploy gratis ke Render (https://render.com)
+# Pakai: dashboard Render → New → Blueprint → hubungkan repo ini.
+services:
+  - type: web
+    name: aerograb
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
