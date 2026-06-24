@@ -10,8 +10,13 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-// PORT diset otomatis oleh sebagian besar host (Render/Cloud Run/dll). Fallback ke 5174 lokal.
-const PORT = process.env.PORT || process.env.AEROGRAB_PORT || 5174;
+// Produksi: pakai PORT dari host (Render/Cloud Run/dll).
+// Dev: pakai 5174 tetap (cocok dengan target proxy Vite), abaikan PORT ambient
+// agar tidak bentrok dengan port Vite saat dijalankan via concurrently.
+const PORT =
+  process.env.NODE_ENV === 'production'
+    ? process.env.PORT || 5174
+    : process.env.AEROGRAB_PORT || 5174;
 const YTDLP = process.env.YTDLP_PATH || 'yt-dlp';
 
 // ---------- Util ----------
