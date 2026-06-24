@@ -1166,6 +1166,17 @@ p {
   background: rgba(16, 185, 129, 0.03);
 }
 
+.queue-item-card.failed-state {
+  border-color: rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.08);
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.status-message.status-failed {
+  color: #ef4444;
+  gap: 0.4rem;
+}
+
 .queue-item-header {
   display: flex;
   align-items: center;
@@ -1325,6 +1336,10 @@ p {
 
 .progress-bar-fill.success {
   background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.progress-bar-fill.failed {
+  background: linear-gradient(90deg, #ef4444, #f87171);
 }
 
 .download-metadata {

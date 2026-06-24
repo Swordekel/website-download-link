@@ -181,30 +181,242 @@ export default function App() {
     }, 1500);
   };
 
-  // Fungsi pengunduh fisik file (menghasilkan Blob palsu berkualitas tinggi)
-  const saveFileToDevice = (item) => {
-    const formatLabel = item.resolution || item.bitrate || 'MP4';
-    const extension = item.type === 'audio' ? 'mp3' : 'mp4';
-    const filename = `${item.videoTitle.replace(/[/\\?%*:|"<>]/g, '')} [AeroGrab ${formatLabel}].${extension}`;
+  // Menghasilkan berkas WAV (PCM 16-bit) yang valid berisi nada lembut.
+  // Berkas ini benar-benar dapat diputar oleh media player, bukan sekadar teks.
+  const generateAudioBlob = (durationSec = 3) => {
+    const sampleRate = 44100;
+    const numSamples = Math.floor(durationSec * sampleRate);
+    const dataSize = numSamples * 2; // 16-bit mono
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
 
-    // Buat dummy content text didalam blob. 
-    // Browser akan melihat ini sebagai file unduhan yang valid sesuai nama filenya.
-    const dummyContent = `AeroGrab Downloader File\nPlatform: ${item.platform}\nTitle: ${item.videoTitle}\nQuality: ${formatLabel}\nThis is a mock multimedia container simulated successfully by AeroGrab.`;
-    const mimeType = item.type === 'audio' ? 'audio/mpeg' : 'video/mp4';
-    const blob = new Blob([dummyContent], { type: mimeType });
+    // Header WAV/RIFF standar
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true); // ukuran sub-chunk fmt
+    view.setUint16(20, 1, true); // format PCM
+    view.setUint16(22, 1, true); // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // byte rate
+    view.setUint16(32, 2, true); // block align
+    view.setUint16(34, 16, true); // bits per sample
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Nada 440Hz dengan amplop attack/decay agar terdengar halus
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      const env = Math.min(1, t * 4) * Math.max(0, 1 - t / durationSec);
+      const sample = Math.sin(2 * Math.PI * 440 * t) * 0.25 * env;
+      view.setInt16(44 + i * 2, sample * 0x7fff, true);
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+  };
+
+  // Menghasilkan berkas video nyata (canvas + MediaRecorder) yang benar-benar dapat diputar.
+  const generateVideoBlob = (item, durationSec = 2.5) =>
+    new Promise((resolve, reject) => {
+      try {
+        if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) {
+          reject(new Error('Browser ini tidak mendukung pembuatan berkas video.'));
+          return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 360;
+        const ctx = canvas.getContext('2d');
+        const stream = canvas.captureStream(30);
+
+        // Tambahkan trek audio agar video memiliki suara
+        let audioCtx;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          audioCtx = new AudioCtx();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0.04;
+          osc.frequency.value = 220;
+          const dest = audioCtx.createMediaStreamDestination();
+          osc.connect(gain).connect(dest);
+          osc.start();
+          dest.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
+        }
+
+        const candidates = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm',
+          'video/mp4',
+        ];
+        const mimeType =
+          candidates.find((c) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) ||
+          'video/webm';
+
+        const recorder = new MediaRecorder(stream, { mimeType });
+        const chunks = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+        recorder.onerror = (e) => reject(e.error || new Error('Perekaman video gagal.'));
+        recorder.onstop = () => {
+          try { audioCtx && audioCtx.close(); } catch { /* noop */ }
+          resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
+        };
+
+        // Animasi sederhana bertema AeroGrab selama klip
+        const start = performance.now();
+        const draw = () => {
+          const p = Math.min(1, (performance.now() - start) / 1000 / durationSec);
+          const grad = ctx.createLinearGradient(0, 0, 640, 360);
+          grad.addColorStop(0, '#b45309');
+          grad.addColorStop(1, '#451a03');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 640, 360);
+
+          ctx.fillStyle = 'rgba(255,255,255,0.95)';
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 30px sans-serif';
+          ctx.fillText('AeroGrab', 320, 150);
+          ctx.font = '16px sans-serif';
+          ctx.fillText((item.videoTitle || '').slice(0, 42), 320, 188);
+
+          ctx.fillStyle = 'rgba(255,255,255,0.25)';
+          ctx.fillRect(170, 235, 300, 8);
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(170, 235, 300 * p, 8);
+
+          if (p < 1 && recorder.state === 'recording') requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+
+        recorder.start();
+        setTimeout(() => {
+          if (recorder.state === 'recording') recorder.stop();
+        }, durationSec * 1000);
+      } catch (err) {
+        reject(err);
+      }
+    });
+
+  // Memicu unduhan berkas ke perangkat melalui anchor sementara
+  const triggerBrowserDownload = (blob, filename) => {
     const blobUrl = URL.createObjectURL(blob);
-
     const a = document.createElement('a');
     a.href = blobUrl;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    
-    // Cleanup URL
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
-    }, 100);
+    }, 1000);
+  };
+
+  // Fungsi pengunduh fisik file: menghasilkan berkas media VALID yang benar-benar bisa diputar.
+  // Mengembalikan Promise agar kegagalan dapat ditangani (status "Gagal"), bukan diam-diam rusak.
+  const saveFileToDevice = async (item) => {
+    const formatLabel = item.resolution || item.bitrate || 'MP4';
+    const safeTitle =
+      (item.videoTitle || 'AeroGrab Video').replace(/[/\\?%*:|"<>]/g, '').trim() || 'AeroGrab Video';
+
+    let blob;
+    let extension;
+    if (item.type === 'audio') {
+      blob = generateAudioBlob();
+      extension = 'wav';
+    } else {
+      const result = await generateVideoBlob(item);
+      blob = result.blob;
+      extension = result.mimeType.includes('mp4') ? 'mp4' : 'webm';
+    }
+
+    if (!blob || blob.size === 0) {
+      throw new Error('Berkas yang dihasilkan kosong.');
+    }
+
+    triggerBrowserDownload(blob, `${safeTitle} [AeroGrab ${formatLabel}].${extension}`);
+  };
+
+  // Penyimpanan manual (tombol "Simpan" / unduh ulang dari riwayat) dengan umpan balik kegagalan
+  const handleManualSave = (item) => {
+    saveFileToDevice(item).catch((err) => {
+      console.error('Gagal menyimpan berkas:', err);
+      window.alert(`Maaf, berkas gagal disimpan: ${err?.message || 'Kesalahan tidak diketahui'}`);
+    });
+  };
+
+  // Tambah entri ke riwayat dengan functional update agar tidak memakai state usang
+  const addToHistory = (historyItem) => {
+    setHistory((prev) => {
+      const updated = [historyItem, ...prev];
+      localStorage.setItem('aerograb_history', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Finalisasi: simpan berkas ke perangkat, lalu tandai selesai HANYA jika benar-benar berhasil
+  const finalizeSave = (item) => {
+    setQueue((prevQueue) =>
+      prevQueue.map((qItem) =>
+        qItem.id === item.id
+          ? { ...qItem, progress: 100, status: 'saving', speed: 'Menyiapkan berkas...', eta: 'Sebentar lagi' }
+          : qItem
+      )
+    );
+
+    return saveFileToDevice(item)
+      .then(() => {
+        setQueue((prevQueue) =>
+          prevQueue.map((qItem) =>
+            qItem.id === item.id
+              ? { ...qItem, status: 'completed', speed: '0 KB/s', eta: 'Selesai', errorMessage: null }
+              : qItem
+          )
+        );
+
+        // Konfeti hanya dipicu setelah berkas benar-benar tersimpan
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: ['#8b5a2b', '#b8860b', '#d2b48c', '#10b981'],
+        });
+
+        addToHistory({ ...item, timestamp: Date.now() });
+
+        // Hapus otomatis dari queue setelah 5 detik
+        setTimeout(() => {
+          setQueue((prevQueue) => prevQueue.filter((qItem) => qItem.id !== item.id));
+        }, 5000);
+      })
+      .catch((err) => {
+        console.error('Gagal menyimpan berkas:', err);
+        setQueue((prevQueue) =>
+          prevQueue.map((qItem) =>
+            qItem.id === item.id
+              ? {
+                  ...qItem,
+                  status: 'failed',
+                  speed: 'Gagal',
+                  eta: '-',
+                  errorMessage: err?.message || 'Berkas gagal disimpan ke perangkat.',
+                }
+              : qItem
+          )
+        );
+      });
+  };
+
+  // Mencoba kembali penyimpanan berkas yang sebelumnya gagal
+  const handleRetrySave = (item) => {
+    finalizeSave(item);
   };
 
   // Memulai proses download simulasi
@@ -241,39 +453,10 @@ export default function App() {
         currentProgress = 100;
         clearInterval(interval);
 
-        // Update ke completed
-        setQueue((prevQueue) =>
-          prevQueue.map((qItem) =>
-            qItem.id === queueId
-              ? { ...qItem, progress: 100, status: 'completed', speed: '0 KB/s', eta: 'Selesai' }
-              : qItem
-          )
-        );
-
-        // Trigger Efek Konfeti untuk memuaskan visual user
-        confetti({
-          particleCount: 80,
-          spread: 60,
-          origin: { y: 0.8 },
-          colors: ['#8b5a2b', '#b8860b', '#d2b48c', '#10b981'], // Warm bronze confetti tones
-        });
-
-        // Simpan otomatis ke perangkat
+        // Hasilkan & simpan berkas dulu; status "completed", konfeti, dan riwayat
+        // hanya terjadi kalau berkas benar-benar berhasil tersimpan ke perangkat.
         const completedItem = { ...newQueueItem, id: queueId };
-        saveFileToDevice(completedItem);
-
-        // Tambah ke riwayat (history)
-        const historyItem = {
-          ...completedItem,
-          timestamp: Date.now(),
-        };
-        const updatedHistory = [historyItem, ...history];
-        saveHistoryToStorage(updatedHistory);
-
-        // Hapus otomatis dari queue setelah 5 detik
-        setTimeout(() => {
-          setQueue((prevQueue) => prevQueue.filter((qItem) => qItem.id !== queueId));
-        }, 5000);
+        finalizeSave(completedItem);
 
       } else {
         // Progres berjalan
@@ -371,7 +554,8 @@ export default function App() {
                 <DownloadQueue
                   queue={queue}
                   onCancel={handleCancelDownload}
-                  onSaveFile={saveFileToDevice}
+                  onSaveFile={handleManualSave}
+                  onRetry={handleRetrySave}
                 />
 
                 {/* Grid Fitur Pendukung */}
@@ -388,7 +572,7 @@ export default function App() {
                 history={history}
                 onDeleteItem={handleDeleteHistoryItem}
                 onClearAll={handleClearHistory}
-                onSaveFile={saveFileToDevice}
+                onSaveFile={handleManualSave}
               />
             )}
           </motion.div>

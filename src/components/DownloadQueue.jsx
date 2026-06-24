@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { DownloadCloud, Play, Pause, Trash2, CheckCircle2, RefreshCw } from 'lucide-react';
+import { DownloadCloud, Play, Pause, Trash2, CheckCircle2, RefreshCw, AlertTriangle } from 'lucide-react';
 
-export default function DownloadQueue({ queue, onCancel, onSaveFile }) {
+export default function DownloadQueue({ queue, onCancel, onSaveFile, onRetry }) {
   if (queue.length === 0) return null;
 
   return (
@@ -16,14 +16,20 @@ export default function DownloadQueue({ queue, onCancel, onSaveFile }) {
 
       <div className="queue-list">
         {queue.map((item) => (
-          <QueueItem key={item.id} item={item} onCancel={onCancel} onSaveFile={onSaveFile} />
+          <QueueItem
+            key={item.id}
+            item={item}
+            onCancel={onCancel}
+            onSaveFile={onSaveFile}
+            onRetry={onRetry}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function QueueItem({ item, onCancel, onSaveFile }) {
+function QueueItem({ item, onCancel, onSaveFile, onRetry }) {
   const {
     id,
     videoTitle,
@@ -36,7 +42,8 @@ function QueueItem({ item, onCancel, onSaveFile }) {
     progress,
     speed,
     eta,
-    status, // 'connecting', 'downloading', 'muxing', 'completed'
+    status, // 'connecting', 'downloading', 'muxing', 'saving', 'completed', 'failed'
+    errorMessage,
   } = item;
 
   // Mendapatkan label kualitas dari resolusi atau bitrate
@@ -47,7 +54,9 @@ function QueueItem({ item, onCancel, onSaveFile }) {
       case 'connecting': return 'Menghubungkan ke server AeroGrab...';
       case 'downloading': return `Mengunduh aliran media (${formatLabel})...`;
       case 'muxing': return 'Menggabungkan audio & video (Muxing)...';
-      case 'completed': return 'Selesai! Berkas siap disimpan.';
+      case 'saving': return 'Menyimpan berkas ke perangkat...';
+      case 'completed': return 'Selesai! Berkas berhasil disimpan.';
+      case 'failed': return errorMessage ? `Gagal: ${errorMessage}` : 'Berkas gagal disimpan. Silakan coba lagi.';
       default: return 'Memproses...';
     }
   };
@@ -63,7 +72,11 @@ function QueueItem({ item, onCancel, onSaveFile }) {
   };
 
   return (
-    <div className={`queue-item-card ${status === 'completed' ? 'completed-glow' : ''}`}>
+    <div
+      className={`queue-item-card ${status === 'completed' ? 'completed-glow' : ''} ${
+        status === 'failed' ? 'failed-state' : ''
+      }`}
+    >
       <div className="queue-item-header">
         {/* Thumbnail kecil */}
         <div className="queue-thumbnail">
@@ -85,7 +98,7 @@ function QueueItem({ item, onCancel, onSaveFile }) {
 
         {/* Aksi tombol */}
         <div className="queue-actions">
-          {status === 'completed' ? (
+          {status === 'completed' && (
             <button
               className="btn-primary btn-save flex-center"
               onClick={() => onSaveFile(item)}
@@ -93,7 +106,28 @@ function QueueItem({ item, onCancel, onSaveFile }) {
               <CheckCircle2 size={16} />
               <span>Simpan</span>
             </button>
-          ) : (
+          )}
+
+          {status === 'failed' && (
+            <>
+              <button
+                className="btn-primary btn-save flex-center"
+                onClick={() => onRetry(item)}
+              >
+                <RefreshCw size={16} />
+                <span>Coba Lagi</span>
+              </button>
+              <button
+                className="btn-secondary btn-cancel flex-center"
+                onClick={() => onCancel(id)}
+                title="Hapus dari antrean"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
+
+          {status !== 'completed' && status !== 'failed' && (
             <button
               className="btn-secondary btn-cancel flex-center"
               onClick={() => onCancel(id)}
@@ -108,8 +142,12 @@ function QueueItem({ item, onCancel, onSaveFile }) {
       {/* Progres area */}
       <div className="queue-progress-area mt-4">
         <div className="progress-stats mb-1">
-          <span className="status-message flex-center">
-            {status !== 'completed' && <span className="status-dot"></span>}
+          <span className={`status-message flex-center ${status === 'failed' ? 'status-failed' : ''}`}>
+            {status === 'failed' ? (
+              <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+            ) : (
+              status !== 'completed' && <span className="status-dot"></span>
+            )}
             {getStatusText()}
           </span>
           <span className="progress-percentage">{Math.round(progress)}%</span>
@@ -118,7 +156,9 @@ function QueueItem({ item, onCancel, onSaveFile }) {
         {/* Progress Bar Container */}
         <div className="progress-bar-container">
           <div
-            className={`progress-bar-fill ${status === 'completed' ? 'success' : ''}`}
+            className={`progress-bar-fill ${status === 'completed' ? 'success' : ''} ${
+              status === 'failed' ? 'failed' : ''
+            }`}
             style={{ width: `${progress}%` }}
           ></div>
         </div>
